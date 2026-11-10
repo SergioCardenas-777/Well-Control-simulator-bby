@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Control de Pozos — IADC/IWCF/API</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0f14;
+    --bg2: #0e1520;
+    --bg3: #131d28;
+    --panel: #111c29;
+    --border: #1e3048;
+    --border2: #2a4060;
+    --accent: #00d4ff;
+    --accent2: #0090cc;
+    --green: #00e676;
+    --green2: #00a854;
+    --amber: #ffab00;
+    --red: #ff3d00;
+    --red2: #b71c1c;
+    --muted: #4a6580;
+    --text: #c8daea;
+    --text2: #7a9ab8;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+    --cond: 'Barlow Condensed', sans-serif;
+    --danger: #ff1744;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; overflow-x: hidden; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .logo {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--text2); font-weight: 300; }
+  .badges { display: flex; gap: 6px; }
+  .badge {
+    font-family: var(--cond);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border: 1px solid;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .badge-iadc { color: var(--accent); border-color: var(--accent2); }
+  .badge-iwcf { color: var(--green); border-color: var(--green2); }
+  .badge-api  { color: var(--amber); border-color: #7a5200; }
+
+  /* ── SIM STATUS BAR ── */
+  .statusbar {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 16px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .status-item { display: flex; gap: 6px; align-items: center; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .status-dot.danger { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse 0.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .sim-time { margin-left: auto; color: var(--accent); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 68px);
+    gap: 0;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+
+  .panel-title {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+  }
+  .card-title {
+    font-family: var(--cond);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  /* ── GAUGES ── */
+  .gauge-row { display: flex; gap: 8px; }
+  .gauge {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+    text-align: center;
+  }
+  .gauge-label { font-family: var(--cond); font-size: 10px; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
+  .gauge-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--accent);
+    line-height: 1.1;
+    margin: 2px 0;
+  }
+  .gauge-val.danger { color: var(--danger); animation: pulse 0.5s infinite; }
+  .gauge-val.warn { color: var(--amber); }
+  .gauge-val.good { color: var(--green); }
+  .gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+  /* ── SLIDERS & INPUTS ── */
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .param-label {
+    font-family: var(--cond);
+    font-size: 11px;
+    color: var(--text2);
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+  .param-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 52px;
+    text-align: right;
+  }
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 4px var(--accent2);
+  }
+  input[type=number] {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    width: 70px;
+    outline: none;
+  }
+  input[type=number]:focus { border-color: var(--accent); }
+  select {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--cond);
+    font-size: 11px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    outline: none;
+    width: 100%;
+  }
+
+  /* ── BUTTONS ── */
+  .btn-row { display: flex; gap: 6px; margin-top: 4px; }
+  .btn {
+    flex: 1;
+    padding: 7px 6px;
+    border: none;
+    border-radius: 3px;
+    font-family: var(--cond);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent2); color: #fff; }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-danger { background: var(--red2); color: #fff; }
+  .btn-danger:hover { background: var(--red); }
+  .btn-green { background: var(--green2); color: #000; }
+  .btn-green:hover { background: var(--green); }
+  .btn-amber { background: #7a5200; color: var(--amber); border: 1px solid var(--amber); }
+  .btn-amber:hover { background: #a06800; }
+  .btn-dark { background: var(--bg3); color: var(--text2); border: 1px solid var(--border2); }
+  .btn-dark:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-full { width: 100%; padding: 10px; }
+
+  /* BIG CONTROL TOGGLE */
+  .bop-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .bop-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 3px;
+    border: 1px solid;
+    cursor: pointer;
+    font-family: var(--cond);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .bop-btn.open { border-color: var(--green2); background: rgba(0,230,118,0.08); color: var(--green); }
+  .bop-btn.closed { border-color: var(--red2); background: rgba(255,61,0,0.08); color: var(--red); }
+  .bop-status { font-size: 10px; letter-spacing: 0.5px; opacity: 0.8; }
+
+  /* ── CHOKE DIAL ── */
+  .choke-container { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  canvas.choke-canvas { display: block; }
+
+  /* ── CENTRAL CANVAS ── */
+  .center { 
+    display: flex; 
+    flex-direction: column; 
+    background: var(--bg); 
+    overflow: hidden;
+  }
+  .well-canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas#wellCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── LOG STRIP ── */
+  .log-strip {
+    height: 120px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0;
+  }
+  .log-chart {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas.log-chart-canvas { display: block; width: 100%; height: 100%; }
+  .log-events {
+    width: 200px;
+    border-left: 1px solid var(--border);
+    padding: 6px 8px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .log-events .ev { padding: 2px 0; border-bottom: 1px solid var(--border); }
+  .log-events .ev.warn { color: var(--amber); }
+  .log-events .ev.danger { color: var(--danger); }
+  .log-events .ev.good { color: var(--green); }
+
+  /* ── PRESSURE CHART ── */
+  .chart-label {
+    font-family: var(--cond);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text2);
+    text-transform: uppercase;
+    padding: 4px 8px;
+    display: flex;
+    gap: 16px;
+  }
+  .chart-legend { display: flex; align-items: center; gap: 4px; }
+  .legend-line { width: 18px; height: 2px; border-radius: 1px; }
+
+  /* ── GAS METER ── */
+  .gas-bar-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; height: 12px; }
+  .gas-bar { height: 100%; background: var(--green2); transition: width 0.3s, background 0.3s; }
+  .gas-bar.warn { background: var(--amber); }
+  .gas-bar.danger { background: var(--danger); }
+
+  /* ── FORMATION TABLE ── */
+  .form-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; }
+  .form-table th { color: var(--text2); font-weight: 400; padding: 3px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+  .form-table td { padding: 3px 6px; border-bottom: 1px solid rgba(30,48,72,0.5); }
+  .form-table tr.active td { color: var(--accent); }
+  .form-table tr.active td:first-child::before { content: '▶ '; }
+
+  /* ── CASING TABLE ── */
+  .casing-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; }
+  .casing-table th { color: var(--text2); font-weight: 400; padding: 3px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+  .casing-table td { padding: 3px 4px; border-bottom: 1px solid rgba(30,48,72,0.5); color: var(--text); }
+
+  /* ── KILL SHEET ── */
+  .kill-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(30,48,72,0.4); }
+  .kill-key { font-family: var(--cond); font-size: 11px; color: var(--text2); }
+  .kill-val { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .kill-val.danger { color: var(--danger); }
+  .kill-val.warn { color: var(--amber); }
+
+  /* ── MODAL OVERLAY ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 20px;
+    max-width: 480px;
+    width: 90%;
+  }
+  .modal h3 { font-family: var(--cond); font-size: 16px; color: var(--accent); margin-bottom: 16px; letter-spacing: 1px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .modal-field label { font-family: var(--cond); font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  .modal-field input, .modal-field select { width: 100%; }
+
+  /* ── KICK ALERT ── */
+  .kick-alert {
+    display: none;
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(183,28,28,0.95);
+    border: 2px solid var(--danger);
+    border-radius: 4px;
+    padding: 10px 24px;
+    font-family: var(--cond);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: #fff;
+    text-align: center;
+    z-index: 50;
+    animation: pulse 0.5s infinite;
+    pointer-events: none;
+  }
+  .kick-alert.show { display: block; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── TOOLTIP ── */
+  .tip { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: auto; }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 320px; }
+    .panel:last-child { border-left: none; }
+    .well-canvas-wrap { height: 50vw; min-height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">WELCTL <span>PRO</span></div>
+  <div class="badges">
+    <span class="badge badge-iadc">IADC</span>
+    <span class="badge badge-iwcf">IWCF</span>
+    <span class="badge badge-api">API RP 59</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn btn-primary" onclick="openSetup()" style="padding:5px 14px;font-size:11px;">⚙ Configurar Pozo</button>
+    <button class="btn btn-green" onclick="startDrilling()" id="btnDrill" style="padding:5px 14px;font-size:11px;">▶ Iniciar</button>
+    <button class="btn btn-dark" onclick="resetSim()" style="padding:5px 14px;font-size:11px;">↺ Reset</button>
+  </div>
+</header>
+
+<div class="statusbar">
+  <div class="status-item"><div class="status-dot" id="simDot"></div> <span id="simStatus">DETENIDO</span></div>
+  <div class="status-item">Broca: <span id="sbBitDepth" style="color:var(--accent);font-weight:500;">0 m</span></div>
+  <div class="status-item">Formación: <span id="sbFormation" style="color:var(--amber);">—</span></div>
+  <div class="status-item">Modo Kill: <span id="sbKillMode" style="color:var(--text2);">Ninguno</span></div>
+  <div class="status-item">Bomba: <span id="sbPump" style="color:var(--green);">OFF</span></div>
+  <div class="status-item sim-time" id="simClock">00:00:00</div>
+</div>
+
+<div class="main">
+
+  <!-- ═══ LEFT PANEL ═══ -->
+  <div class="panel">
+    <div class="panel-title">Control BOP / Choke</div>
+
+    <!-- BOP Stack -->
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Stack BOP</span>
+        <button class="btn btn-dark" onclick="toggleBOPConfig()" id="btnBOPConfig" style="padding:2px 8px;font-size:9px;letter-spacing:0.5px;">+ Configurar</button>
+      </div>
+
+      <!-- BOP Config Panel (hidden by default) -->
+      <div id="bopConfigPanel" style="display:none;margin-bottom:8px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;">
+        <div style="font-family:var(--cond);font-size:10px;color:var(--text2);margin-bottom:6px;letter-spacing:1px;">COMPONENTES DISPONIBLES</div>
+        <div id="bopCheckboxes" style="display:flex;flex-direction:column;gap:4px;"></div>
+        <div style="margin-top:8px;font-family:var(--cond);font-size:10px;color:var(--text2);margin-bottom:4px;">RATING BOP ACTIVO</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--amber);" id="bopRatingDisplay">10,000 psi</div>
+        <div style="margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--muted);">API 16A — Stack mínimo: Anular + 1 RAM</div>
+      </div>
+
+      <!-- Dynamic BOP Buttons -->
+      <div class="bop-toggle" id="bopStack"></div>
+    </div>
+
+    <!-- Choke -->
+    <div class="card">
+      <div class="card-title">Manifold de Choke</div>
+      <div class="choke-container">
+        <canvas class="choke-canvas" id="chokeCanvas" width="160" height="160"></canvas>
+        <div style="display:flex;gap:8px;width:100%;">
+          <button class="btn btn-danger" onclick="adjustChoke(-10)">− 10%</button>
+          <button class="btn btn-green" onclick="adjustChoke(10)">+ 10%</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text2);">Apertura: <span id="chokeDisplay" style="color:var(--accent);">50%</span></div>
+      </div>
+    </div>
+
+    <!-- Pump -->
+    <div class="card">
+      <div class="card-title">Bomba de Lodos (SPM)</div>
+      <div class="param-row">
+        <span class="param-label">SPM</span>
+        <input type="range" id="spmSlider" min="0" max="120" value="0" oninput="setSPM(this.value)">
+        <span class="param-val" id="spmVal">0</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="setSPM(30)">30 SPM</button>
+        <button class="btn btn-amber" onclick="setSPM(60)">60 SPM</button>
+        <button class="btn btn-primary" onclick="setSPM(90)">90 SPM</button>
+        <button class="btn btn-dark" onclick="setSPM(0)">OFF</button>
+      </div>
+      <div class="param-row" style="margin-top:8px;">
+        <span class="param-label">Eficiencia</span>
+        <input type="range" id="pumpEff" min="50" max="100" value="98" oninput="document.getElementById('pumpEffVal').textContent=this.value+'%'">
+        <span class="param-val" id="pumpEffVal">98%</span>
+      </div>
+    </div>
+
+    <!-- Kill Method -->
+    <div class="card">
+      <div class="card-title">Método de Kill (IADC)</div>
+      <select id="killMethod" onchange="setKillMethod(this.value)">
+        <option value="none">— Seleccionar —</option>
+        <option value="driller">Driller's Method</option>
+        <option value="wait_weight">Wait & Weight Method</option>
+        <option value="bullhead">Bullheading</option>
+      </select>
+      <div id="killStepDisplay" style="margin-top:6px;font-family:var(--mono);font-size:10px;color:var(--amber);"></div>
+    </div>
+
+    <!-- Stroke Counter -->
+    <div class="card">
+      <div class="card-title">Contador de Strokes</div>
+      <div class="gauge-row">
+        <div class="gauge">
+          <div class="gauge-label">Strokes</div>
+          <div class="gauge-val" id="strokeCount">0</div>
+          <div class="gauge-unit">Total</div>
+        </div>
+        <div class="gauge">
+          <div class="gauge-label">Caudal</div>
+          <div class="gauge-val" id="flowRate">0.000</div>
+          <div class="gauge-unit">bbl/min</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;margin-top:4px;border-top:1px solid var(--border);">
+        <span style="font-family:var(--cond);font-size:10px;color:var(--text2);">Vol. por stroke</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--accent);" id="volPerStroke">0.100 bbl</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--border);">
+        <span style="font-family:var(--cond);font-size:10px;color:var(--text2);">Vol. bombeado total</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--amber);" id="totalVolPumped">0.000 bbl</span>
+      </div>
+      <button class="btn btn-dark btn-full" onclick="resetStrokes()" style="margin-top:6px;font-size:10px;">Reset Contador</button>
+    </div>
+
+  </div>
+
+  <!-- ═══ CENTER ═══ -->
+  <div class="center">
+    <div class="well-canvas-wrap">
+      <canvas id="wellCanvas"></canvas>
+      <div class="kick-alert" id="kickAlert">⚠ KICK DETECTADO — CERRAR BOP ⚠</div>
+    </div>
+    <div class="log-strip">
+      <div class="log-chart">
+        <div class="chart-label">
+          <span>Registro de Presiones</span>
+          <span class="chart-legend"><span class="legend-line" style="background:var(--accent)"></span>P. Fondo (BHP)</span>
+          <span class="chart-legend"><span class="legend-line" style="background:var(--green)"></span>P. Superficie (SITP)</span>
+          <span class="chart-legend"><span class="legend-line" style="background:var(--amber)"></span>P. Fractura</span>
+          <span class="chart-legend"><span class="legend-line" style="background:var(--danger)"></span>P. Formación</span>
+        </div>
+        <canvas id="pressChart" style="width:100%;height:80px;display:block;"></canvas>
+      </div>
+      <div class="log-events" id="eventLog">
+        <div class="ev good">▶ Simulador listo</div>
+        <div class="ev">Configure el pozo y presione Iniciar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="panel">
+    <div class="panel-title">Presiones y Estado</div>
+
+    <!-- Pressure Gauges -->
+    <div class="card">
+      <div class="card-title">Presiones en Tiempo Real</div>
+      <div class="gauge-row">
+        <div class="gauge">
+          <div class="gauge-label">BHP</div>
+          <div class="gauge-val" id="gBHP">0</div>
+          <div class="gauge-unit">psi</div>
+        </div>
+        <div class="gauge">
+          <div class="gauge-label">SIDPP</div>
+          <div class="gauge-val" id="gSIDPP">0</div>
+          <div class="gauge-unit">psi</div>
+        </div>
+      </div>
+      <div class="gauge-row" style="margin-top:6px;">
+        <div class="gauge">
+          <div class="gauge-label">SICP</div>
+          <div class="gauge-val" id="gSICP">0</div>
+          <div class="gauge-unit">psi</div>
+        </div>
+        <div class="gauge">
+          <div class="gauge-label">P. Línea Choke</div>
+          <div class="gauge-val" id="gChoke">0</div>
+          <div class="gauge-unit">psi</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formation Pressure Indicators -->
+    <div class="card">
+      <div class="card-title">Indicadores IADC/IWCF</div>
+      <div class="kill-row"><span class="kill-key">Grad. Formación</span><span class="kill-val" id="kFormGrad">—</span></div>
+      <div class="kill-row"><span class="kill-key">Grad. Fractura</span><span class="kill-val" id="kFracGrad">—</span></div>
+      <div class="kill-row"><span class="kill-key">Densidad Lodo</span><span class="kill-val" id="kMudDens">—</span></div>
+      <div class="kill-row"><span class="kill-key">Densidad Kill</span><span class="kill-val" id="kKillDens">—</span></div>
+      <div class="kill-row"><span class="kill-key">P. Formación</span><span class="kill-val" id="kPform">—</span></div>
+      <div class="kill-row"><span class="kill-key">P. Fractura</span><span class="kill-val" id="kPfrac">—</span></div>
+      <div class="kill-row"><span class="kill-key">Sobrebalance</span><span class="kill-val" id="kOverbal">—</span></div>
+    </div>
+
+    <!-- Gas Influx -->
+    <div class="card">
+      <div class="card-title">Influx de Gas</div>
+      <div class="kill-row"><span class="kill-key">Gas en pozo</span><span class="kill-val" id="kGasVol">0.0 bbl</span></div>
+      <div class="kill-row"><span class="kill-key">Tasa influx</span><span class="kill-val" id="kGasRate">0.0 bph</span></div>
+      <div style="margin-top:6px;">
+        <div style="font-family:var(--cond);font-size:10px;color:var(--text2);margin-bottom:4px;">Nivel de Peligro</div>
+        <div class="gas-bar-wrap"><div class="gas-bar" id="gasBar" style="width:0%"></div></div>
+      </div>
+      <div id="gasAlert" style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:4px;min-height:14px;"></div>
+    </div>
+
+    <!-- Formation Log -->
+    <div class="card">
+      <div class="card-title">Columna Estratigráfica</div>
+      <table class="form-table">
+        <thead><tr><th>Prof (m)</th><th>Formación</th><th>Grad (ppg)</th></tr></thead>
+        <tbody id="formationTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Casing Table -->
+    <div class="card">
+      <div class="card-title">Estado Mecánico del Pozo</div>
+      <table class="casing-table">
+        <thead><tr><th>Rev.</th><th>OD (pulg)</th><th>Prof (m)</th></tr></thead>
+        <tbody id="casingTable"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SETUP MODAL ══ -->
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h3>⚙ Configuración del Pozo</h3>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label>Profundidad Total (m)</label>
+        <input type="number" id="cfTD" value="3500" min="500" max="8000">
+      </div>
+      <div class="modal-field">
+        <label>Dens. Lodo (ppg)</label>
+        <input type="number" id="cfMudDens" value="10.5" step="0.1" min="7" max="18">
+      </div>
+      <div class="modal-field">
+        <label>Grad. Formación (ppg)</label>
+        <input type="number" id="cfFormGrad" value="11.2" step="0.1" min="8" max="17">
+      </div>
+      <div class="modal-field">
+        <label>Grad. Fractura (ppg)</label>
+        <input type="number" id="cfFracGrad" value="14.0" step="0.1" min="9" max="20">
+      </div>
+      <div class="modal-field">
+        <label>Diámetro Broca (pulg)</label>
+        <select id="cfBitSize">
+          <option value="8.5">8½"</option>
+          <option value="9.875">9⅞"</option>
+          <option value="12.25" selected>12¼"</option>
+          <option value="17.5">17½"</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>Tipo BOP Rating</label>
+        <select id="cfBOPRating">
+          <option value="5000">5,000 psi</option>
+          <option value="10000" selected>10,000 psi</option>
+          <option value="15000">15,000 psi</option>
+          <option value="20000">20,000 psi</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>Vol. Liner bomba (bbl/stk)</label>
+        <input type="number" id="cfPumpVol" value="0.1" step="0.01" min="0.05" max="0.5">
+      </div>
+      <div class="modal-field">
+        <label>ROP máx (m/hr)</label>
+        <input type="number" id="cfROP" value="15" min="1" max="100">
+      </div>
+    </div>
+    <!-- Casings -->
+    <div style="margin-bottom:12px;">
+      <div style="font-family:var(--cond);font-size:11px;color:var(--text2);margin-bottom:6px;">REVESTIMIENTOS</div>
+      <table class="casing-table" style="width:100%;margin-bottom:6px;">
+        <thead><tr><th>Tipo</th><th>OD (pulg)</th><th>Profundidad (m)</th></tr></thead>
+        <tbody id="casingSetup">
+          <tr><td>Superficial</td><td>13⅜"</td><td><input type="number" value="500" style="width:70px;"></td></tr>
+          <tr><td>Intermedio</td><td>9⅝"</td><td><input type="number" value="1800" style="width:70px;"></td></tr>
+          <tr><td>Producción</td><td>7"</td><td><input type="number" value="3200" style="width:70px;"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-full" onclick="applySetup()">Aplicar Configuración</button>
+      <button class="btn btn-dark btn-full" onclick="closeSetup()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  SIMULADOR DE CONTROL DE POZOS
+//  Normas: IADC Well Control, IWCF, API RP 59
+// ═══════════════════════════════════════════════════════
+
+// ── CONSTANTES FÍSICAS ──
+const PSI_PER_FT_PER_PPG = 0.052; // factor hidrostático
+const M_TO_FT = 3.28084;
+const BBL_TO_L = 158.987;
+
+// ── ESTADO DEL SIMULADOR ──
+const S = {
+  running: false,
+  time: 0,          // segundos
+  bitDepth: 0,      // metros
+  ROP: 0,           // m/hr actual
+  
+  // Lodo
+  mudDens: 10.5,    // ppg
+  killMudDens: 10.5,// ppg
+  
+  // Formación
+  formGrad: 11.2,   // ppg (gradiente presión de poro)
+  fracGrad: 14.0,   // ppg
+  TD: 3500,         // m profundidad total
+  
+  // BOP
+  annBOP: false,    // false = ABIERTO
+  pipeBOP: false,
+  blindBOP: false,
+  
+  // Choke
+  chokeOpen: 50,    // 0-100%
+  
+  // Bomba
+  spm: 0,           // strokes por minuto
+  pumpVol: 0.1,     // bbl/stroke
+  pumpEff: 0.98,
+  strokeCount: 0,
+  
+  // Presiones (psi)
+  bhp: 0, sidpp: 0, sicp: 0, chokePsi: 0,
+  pForm: 0, pFrac: 0,
+  
+  // Gas influx
+  gasInWell: 0,     // bbl
+  gasRate: 0,       // bbl/hr
+  kickDetected: false,
+  fracDetected: false,
+  
+  // Configuración geomecánica
+  bitSize: 12.25,   // pulg
+  bopRating: 10000, // psi
+  maxROP: 15,
+  
+  // Casings [tipo, OD, profundidad_m]
+  casings: [
+    {type:'Superficial', od:13.375, depth:500},
+    {type:'Intermedio', od:9.625, depth:1800},
+    {type:'Producción', od:7.0, depth:3200}
+  ],
+  
+  // Formaciones (ppg pore gradient)
+  formations: [
+    {name:'Arenas Cretácicas', top:0, grad:10.0, frac:12.5},
+    {name:'Lutitas Eocenas', top:800, grad:10.5, frac:13.0},
+    {name:'Calizas Oligocenas', top:1600, grad:11.0, frac:13.8},
+    {name:'Arenas Pliocenas', top:2400, grad:11.2, frac:14.0},
+    {name:'Zona Objetivo (Pay)', top:3000, grad:12.5, frac:14.8},
+  ],
+  
+  // Kill method
+  killMethod: 'none',
+  killStep: 0,
+  
+  // Historial de presiones
+  pressHistory: [],
+  
+  // Strokes para kill
+  strokesToSurface: 0,
+  strokesToBit: 0,
+};
+
+// ── TIMERS ──
+let simInterval = null;
+let clockInterval = null;
+let startTime = null;
+
+// ─── PRESIÓN HIDROSTÁTICA ───
+function hydrostaticPSI(densityPPG, depthM) {
+  return densityPPG * (depthM * M_TO_FT) * PSI_PER_FT_PER_PPG;
+}
+
+// ─── GRADIENTE ACTIVO ───
+function getActiveFormation(depthM) {
+  let active = S.formations[0];
+  for (let f of S.formations) {
+    if (depthM >= f.top) active = f;
+  }
+  return active;
+}
+
+// ─── CALCULAR PRESIONES ───
+function calcPressures() {
+  const depth = S.bitDepth;
+  if (depth <= 0) { S.bhp = 0; S.sidpp = 0; S.sicp = 0; S.chokePsi = 0; return; }
+  
+  const fRock = getActiveFormation(depth);
+  S.formGrad = fRock.grad;
+  S.fracGrad = fRock.frac;
+  S.pForm = hydrostaticPSI(fRock.grad, depth);
+  S.pFrac = hydrostaticPSI(fRock.frac, depth);
+  
+  // BHP = presión hidrostática lodo + presión bomba
+  const mudHydro = hydrostaticPSI(S.mudDens, depth);
+  const pumpDeltaP = S.spm > 0 ? (S.spm / 60) * S.pumpVol * 14.696 * 5 : 0;
+  S.bhp = mudHydro + pumpDeltaP;
+  
+  // Efecto del choke: reduce ECD en fondo
+  if (anyBOPClosed()) {
+    const chokeBack = (1 - S.chokeOpen / 100) * S.sicp;
+    S.bhp = mudHydro + chokeBack;
+  }
+  
+  // Cálculo de influx
+  if (S.running && !anyBOPClosed()) {
+    // Underbalance → gas entra
+    if (S.bhp < S.pForm) {
+      const underbal = S.pForm - S.bhp;
+      const influxRate = underbal * 0.00008; // bbl/step
+      S.gasInWell = Math.min(S.gasInWell + influxRate, 80);
+      S.gasRate = influxRate * 3600;
+      if (!S.kickDetected && S.gasInWell > 0.5) {
+        S.kickDetected = true;
+        addEvent('⚠ KICK! Influx detectado', 'danger');
+      }
+    } else {
+      S.gasRate = 0;
+    }
+  }
+  
+  // Presión superficie cuando BOP cerrado
+  if (anyBOPClosed()) {
+    S.sidpp = Math.max(0, S.pForm - mudHydro);
+    // SICP incluye el gas
+    const gasColumn = S.gasInWell * 0.2; // simplificado
+    S.sicp = Math.max(0, S.pForm - mudHydro + gasColumn * 10);
+    S.chokePsi = S.sicp * (1 - S.chokeOpen / 100) + (S.spm > 0 ? 150 : 0);
+    
+    // BHP bajo presión del choke
+    S.bhp = mudHydro + S.sicp * (1 - S.chokeOpen / 100);
+  } else {
+    S.sidpp = 0;
+    S.sicp = 0;
+    S.chokePsi = 0;
+    if (S.spm > 0) {
+      S.chokePsi = pumpDeltaP * (S.chokeOpen < 100 ? (1 - S.chokeOpen / 100) * 0.5 : 0);
+    }
+  }
+  // Detección de fractura
+  if (S.bhp > S.pFrac && !S.fracDetected) {
+    S.fracDetected = true;
+    addEvent('💥 FRACTURA FORMACIÓN! Reducir presión', 'danger');
+  }
+  if (S.bhp < S.pFrac * 0.99) S.fracDetected = false;
+  
+  // Kill mud density
+  if (S.sidpp > 0) {
+    S.killMudDens = S.mudDens + (S.sidpp / ((depth * M_TO_FT) * PSI_PER_FT_PER_PPG));
+  } else {
+    S.killMudDens = S.mudDens;
+  }
+}
+
+// ─── STROKE COUNT & FLOW ───
+let strokeAcc = 0;
+function updatePump(dt) {
+  if (S.spm <= 0) { S.gasRate = 0; return; }
+  strokeAcc += S.spm * dt / 60;
+  const newStrokes = Math.floor(strokeAcc);
+  if (newStrokes > 0) {
+    S.strokeCount += newStrokes;
+    strokeAcc -= newStrokes;
+  }
+}
+
+// ─── STEP DE SIMULACIÓN (dt = segundos) ───
+function simStep() {
+  if (!S.running) return;
+  const dt = 0.5; // 0.5s por tick
+  S.time += dt;
+  
+  // Avance de broca
+  if (S.bitDepth < S.TD) {
+    const ropMs = (S.maxROP / 3600) * (S.spm > 0 ? Math.min(S.spm, 90) / 90 : 0.2);
+    S.bitDepth = Math.min(S.TD, S.bitDepth + ropMs * dt);
+  }
+  
+  updatePump(dt);
+  calcPressures();
+  
+  // Guardar historial (cada ~2s)
+  if (Math.floor(S.time) % 2 === 0) {
+    S.pressHistory.push({
+      t: S.time,
+      bhp: S.bhp,
+      sidpp: S.sidpp,
+      pFrac: S.pFrac,
+      pForm: S.pForm
+    });
+    if (S.pressHistory.length > 200) S.pressHistory.shift();
+  }
+  
+  updateUI();
+}
+
+// ─── UI UPDATE ───
+function updateUI() {
+  const fmt = (n, d=0) => isNaN(n) ? '0' : n.toFixed(d);
+  
+  // Status bar
+  document.getElementById('sbBitDepth').textContent = fmt(S.bitDepth, 1) + ' m';
+  const af = getActiveFormation(S.bitDepth);
+  document.getElementById('sbFormation').textContent = af.name;
+  document.getElementById('sbPump').textContent = S.spm > 0 ? S.spm + ' SPM' : 'OFF';
+  document.getElementById('sbPump').style.color = S.spm > 0 ? 'var(--green)' : 'var(--muted)';
+  
+  // Presiones
+  const bhpEl = document.getElementById('gBHP');
+  bhpEl.textContent = fmt(S.bhp);
+  bhpEl.className = 'gauge-val' + (S.bhp > S.pFrac ? ' danger' : S.bhp < S.pForm * 0.98 && S.bitDepth > 0 ? ' warn' : '');
+  
+  document.getElementById('gSIDPP').textContent = fmt(S.sidpp);
+  document.getElementById('gSICP').textContent = fmt(S.sicp);
+  document.getElementById('gChoke').textContent = fmt(S.chokePsi);
+  
+  // Kill sheet
+  document.getElementById('kFormGrad').textContent = S.formGrad.toFixed(1) + ' ppg';
+  document.getElementById('kFracGrad').textContent = S.fracGrad.toFixed(1) + ' ppg';
+  document.getElementById('kMudDens').textContent = S.mudDens.toFixed(2) + ' ppg';
+  const kdEl = document.getElementById('kKillDens');
+  kdEl.textContent = S.killMudDens.toFixed(2) + ' ppg';
+  kdEl.className = 'kill-val' + (S.killMudDens > S.mudDens + 0.1 ? ' warn' : '');
+  document.getElementById('kPform').textContent = fmt(S.pForm) + ' psi';
+  document.getElementById('kPfrac').textContent = fmt(S.pFrac) + ' psi';
+  const overbal = S.bhp - S.pForm;
+  const obEl = document.getElementById('kOverbal');
+  obEl.textContent = fmt(overbal) + ' psi';
+  obEl.className = 'kill-val' + (overbal < 0 ? ' danger' : overbal < 100 ? ' warn' : ' good');
+  
+  // Pump / strokes
+  document.getElementById('strokeCount').textContent = S.strokeCount;
+  const flowBblMin = S.spm * S.pumpVol * (parseFloat(document.getElementById('pumpEff').value) / 100);
+  document.getElementById('flowRate').textContent = flowBblMin.toFixed(3);
+  document.getElementById('volPerStroke').textContent = S.pumpVol.toFixed(3) + ' bbl';
+  document.getElementById('totalVolPumped').textContent = (S.strokeCount * S.pumpVol).toFixed(3) + ' bbl';
+  
+  // Gas
+  const maxGas = 50;
+  const gasPct = Math.min(100, S.gasInWell / maxGas * 100);
+  document.getElementById('kGasVol').textContent = S.gasInWell.toFixed(2) + ' bbl';
+  document.getElementById('kGasRate').textContent = S.gasRate.toFixed(3) + ' bph';
+  const gb = document.getElementById('gasBar');
+  gb.style.width = gasPct + '%';
+  gb.className = 'gas-bar' + (gasPct > 70 ? ' danger' : gasPct > 40 ? ' warn' : '');
+  const ga = document.getElementById('gasAlert');
+  if (S.fracDetected) ga.textContent = '💥 FORMACIÓN FRACTURADA';
+  else if (S.kickDetected && !anyBOPClosed()) ga.textContent = '⚠ KICK — Cerrar BOP inmediatamente';
+  else if (S.kickDetected) ga.textContent = '✓ BOP cerrado — Aplicar método kill';
+  else ga.textContent = gasPct > 10 ? '⚠ Gas en circulación' : '';
+  ga.style.color = S.fracDetected ? 'var(--danger)' : S.kickDetected && !anyBOPClosed() ? 'var(--danger)' : 'var(--amber)';
+  
+  // Kick alert
+  document.getElementById('kickAlert').className = 'kick-alert' + (S.kickDetected && !anyBOPClosed() ? ' show' : '');
+  
+  // Dots
+  const dot = document.getElementById('simDot');
+  dot.className = 'status-dot' + (S.fracDetected || (S.kickDetected && !anyBOPClosed()) ? ' danger' : S.kickDetected ? ' warn' : '');
+  
+  // Dibujar pozo
+  drawWell();
+  drawPressureChart();
+  drawChoke();
+}
+
+// ─── DIBUJO DEL POZO ───
+function drawWell() {
+  const canvas = document.getElementById('wellCanvas');
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0f14';
+  ctx.fillRect(0, 0, W, H);
+  
+  if (W < 10 || H < 10) return;
+  
+  const marginL = 70, marginR = 60, marginTop = 80, marginBot = 20;
+  const wellX = W / 2;
+  const wellW = Math.min(60, W * 0.12);
+  const wellTop = marginTop;
+  const wellH = H - marginTop - marginBot;
+  
+  // Escala
+  const depthScale = wellH / Math.max(S.TD, 100);
+  
+  // ── FORMACIONES ──
+  for (let i = 0; i < S.formations.length; i++) {
+    const f = S.formations[i];
+    const nextTop = i + 1 < S.formations.length ? S.formations[i+1].top : S.TD + 500;
+    const y0 = wellTop + f.top * depthScale;
+    const y1 = wellTop + Math.min(nextTop, S.TD + 200) * depthScale;
+    
+    // Color por gradiente
+    const t = (f.grad - 9) / 6;
+    const r = Math.round(20 + t * 80);
+    const g = Math.round(40 + t * 20);
+    const b = Math.round(60 - t * 40);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, Math.max(0, y0), W, Math.min(H, y1 - y0));
+    
+    // Patrón
+    ctx.strokeStyle = `rgba(${r+20},${g+20},${b+20},0.3)`;
+    ctx.lineWidth = 0.5;
+    for (let yy = y0; yy < y1; yy += 8) {
+      ctx.beginPath();
+      ctx.moveTo(0, yy);
+      ctx.lineTo(W, yy + 4);
+      ctx.stroke();
+    }
+    
+    // Label
+    if (y1 - y0 > 24) {
+      ctx.fillStyle = 'rgba(200,218,234,0.6)';
+      ctx.font = '10px "Barlow Condensed"';
+      ctx.textAlign = 'left';
+      ctx.fillText(f.name, 4, y0 + 14);
+      ctx.fillStyle = 'rgba(255,171,0,0.7)';
+      ctx.fillText(f.grad.toFixed(1) + ' ppg', 4, y0 + 26);
+    }
+  }
+  
+  // ── REVESTIMIENTOS ──
+  for (let i = 0; i < S.casings.length; i++) {
+    const c = S.casings[i];
+    const maxDepth = Math.min(c.depth, S.TD);
+    const odPx = wellW * (c.od / S.bitSize) * 1.2;
+    const y1 = wellTop + maxDepth * depthScale;
+    
+    ctx.strokeStyle = i === 0 ? '#4a6580' : i === 1 ? '#2a8080' : '#6080a0';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([]);
+    
+    // Izq
+    ctx.beginPath(); ctx.moveTo(wellX - odPx/2, wellTop); ctx.lineTo(wellX - odPx/2, y1); ctx.stroke();
+    // Der
+    ctx.beginPath(); ctx.moveTo(wellX + odPx/2, wellTop); ctx.lineTo(wellX + odPx/2, y1); ctx.stroke();
+    // Zapato
+    ctx.fillStyle = i === 0 ? '#4a6580' : i === 1 ? '#2a8080' : '#6080a0';
+    ctx.beginPath();
+    ctx.moveTo(wellX - odPx/2, y1);
+    ctx.lineTo(wellX - odPx/2 + 6, y1 + 10);
+    ctx.lineTo(wellX + odPx/2 - 6, y1 + 10);
+    ctx.lineTo(wellX + odPx/2, y1);
+    ctx.fill();
+    
+    // Label
+    ctx.fillStyle = 'rgba(200,218,234,0.8)';
+    ctx.font = '9px "Share Tech Mono"';
+    ctx.textAlign = 'left';
+    ctx.fillText(c.od + '"', wellX + odPx/2 + 4, wellTop + 14 + i * 14);
+  }
+  
+  // ── BROCA / SARTA ──
+  if (S.bitDepth > 0) {
+    const bitY = wellTop + S.bitDepth * depthScale;
+    const pipeW = 8;
+    
+    // Sarta de perforación
+    const gradient = ctx.createLinearGradient(wellX - pipeW, 0, wellX + pipeW, 0);
+    gradient.addColorStop(0, '#1e3048');
+    gradient.addColorStop(0.5, '#4a8090');
+    gradient.addColorStop(1, '#1e3048');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(wellX - pipeW/2, wellTop, pipeW, bitY - 12);
+    
+    // Broca
+    ctx.fillStyle = '#00d4ff';
+    ctx.beginPath();
+    ctx.moveTo(wellX - 12, bitY - 10);
+    ctx.lineTo(wellX + 12, bitY - 10);
+    ctx.lineTo(wellX + 8, bitY + 2);
+    ctx.lineTo(wellX, bitY + 14);
+    ctx.lineTo(wellX - 8, bitY + 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    
+    // Circulación de lodo (cuando bomba activa)
+    if (S.spm > 0) {
+      const t = Date.now() / 300;
+      for (let i = 0; i < 4; i++) {
+        const yMud = ((bitY + t * 30 + i * (bitY / 4)) % bitY) + wellTop;
+        ctx.fillStyle = 'rgba(0,212,255,0.25)';
+        ctx.beginPath();
+        ctx.arc(wellX, yMud, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Gas / kick (flujo hacia arriba en anular)
+    if (S.gasInWell > 0) {
+      const gasHeight = Math.min(bitY - wellTop, S.gasInWell * 2 * depthScale);
+      ctx.fillStyle = 'rgba(255,171,0,0.12)';
+      ctx.fillRect(wellX + pipeW/2 + 2, bitY - gasHeight, 14, gasHeight);
+      const t2 = Date.now() / 400;
+      for (let i = 0; i < 5; i++) {
+        const yG = bitY - ((t2 * 20 + i * gasHeight / 5) % gasHeight);
+        ctx.fillStyle = 'rgba(255,171,0,0.5)';
+        ctx.beginPath();
+        ctx.arc(wellX + 14, yG, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  
+  // ── BOP STACK (superficie) ── dynamic
+  const installedBOPs = BOP_CATALOGUE.filter(c => S.bopInstalled[c.id]);
+  const bopCount = installedBOPs.length;
+  const bopX = wellX - 30;
+  const bopW = 60;
+  const bopElemH = 18;
+  const bopTotalH = bopCount * bopElemH + 10;
+  
+  ctx.fillStyle = '#0e1520';
+  ctx.strokeStyle = '#1e3048';
+  ctx.lineWidth = 1;
+  ctx.fillRect(bopX - 8, wellTop - bopTotalH - 4, bopW + 16, bopTotalH + 2);
+  ctx.strokeRect(bopX - 8, wellTop - bopTotalH - 4, bopW + 16, bopTotalH + 2);
+  
+  installedBOPs.forEach((comp, i) => {
+    const isClosed = S[comp.key];
+    const color = isClosed ? '#ff3d00' : (comp.warn ? '#00a854' : '#00e676');
+    const y = wellTop - bopTotalH + i * bopElemH + 4;
+    drawBOPElement(ctx, bopX, y, bopW, bopElemH, comp.short, color);
+  });
+  
+  // ── LÍNEA DE CHOKE ──
+  ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(bopX - 8, wellTop - 40);
+  ctx.lineTo(Math.max(marginL - 30, 20), wellTop - 40);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // ── ESCALA DE PROFUNDIDAD ──
+  ctx.fillStyle = 'rgba(122,154,184,0.7)';
+  ctx.font = '9px "Share Tech Mono"';
+  ctx.textAlign = 'right';
+  const depthStep = S.TD / 5;
+  for (let d = 0; d <= S.TD; d += depthStep) {
+    const y = wellTop + d * depthScale;
+    ctx.fillText(Math.round(d) + 'm', marginL - 4, y + 3);
+    ctx.strokeStyle = 'rgba(30,48,72,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(marginL - 2, y);
+    ctx.lineTo(W - marginR + 2, y);
+    ctx.stroke();
+  }
+  
+  // ── PRESIÓN EN FONDO (indicador) ──
+  if (S.bitDepth > 0) {
+    const bitY = wellTop + S.bitDepth * depthScale;
+    const bhpColor = S.bhp > S.pFrac ? '#ff1744' : S.bhp < S.pForm * 0.98 ? '#ffab00' : '#00e676';
+    ctx.fillStyle = bhpColor;
+    ctx.font = 'bold 10px "Share Tech Mono"';
+    ctx.textAlign = 'left';
+    ctx.fillText('BHP: ' + Math.round(S.bhp) + ' psi', W - marginR + 4, bitY + 4);
+  }
+  
+  // ── TÍTULO Y BROCA DEPTH ──
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = 'bold 11px "Barlow Condensed"';
+  ctx.textAlign = 'center';
+  ctx.fillText('ESTADO MECÁNICO DEL POZO', W / 2, 16);
+  ctx.fillStyle = '#7a9ab8';
+  ctx.font = '10px "Share Tech Mono"';
+  ctx.fillText('Prof. Broca: ' + S.bitDepth.toFixed(1) + ' m  |  TD: ' + S.TD + ' m  |  ⌀ ' + S.bitSize + '"', W / 2, 30);
+}
+
+function drawBOPElement(ctx, x, y, w, h, label, color) {
+  ctx.fillStyle = color + '22';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = color;
+  ctx.font = 'bold 9px "Barlow Condensed"';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x + w/2, y + h/2 + 3);
+}
+
+// ─── PRESIÓN CHART ───
+function drawPressureChart() {
+  const canvas = document.getElementById('pressChart');
+  const wrap = canvas.parentElement.parentElement.querySelector('.log-chart');
+  canvas.width = wrap.clientWidth;
+  canvas.height = 80;
+  const W = canvas.width, H = 80;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  if (S.pressHistory.length < 2) return;
+  
+  const maxP = Math.max(...S.pressHistory.map(p => Math.max(p.bhp, p.pFrac, p.pForm, 1000)));
+  const scaleP = (v) => H - 4 - (v / maxP) * (H - 8);
+  const scaleX = (i) => (i / (S.pressHistory.length - 1)) * (W - 4) + 2;
+  
+  const drawLine = (key, color, dash=[]) => {
+    if (!S.pressHistory.some(p => p[key] > 0)) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    S.pressHistory.forEach((p, i) => {
+      const x = scaleX(i), y = scaleP(p[key]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  
+  drawLine('pFrac', '#ffab00', [4, 3]);
+  drawLine('pForm', '#ff3d00', [3, 3]);
+  drawLine('sidpp', '#00e676');
+  drawLine('bhp', '#00d4ff');
+}
+
+// ─── CHOKE DIAL ───
+function drawChoke() {
+  const canvas = document.getElementById('chokeCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, r = 64;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  // Fondo
+  ctx.fillStyle = '#0e1520';
+  ctx.beginPath(); ctx.arc(cx, cy, r + 8, 0, Math.PI * 2); ctx.fill();
+  
+  // Track
+  ctx.strokeStyle = '#1e3048';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI * 0.75, Math.PI * 0.25, false);
+  ctx.stroke();
+  
+  // Progress
+  const startA = Math.PI * 0.75;
+  const endA = startA + (S.chokeOpen / 100) * (Math.PI * 1.5);
+  const chokeColor = S.chokeOpen < 20 ? '#ff3d00' : S.chokeOpen > 80 ? '#00e676' : '#ffab00';
+  ctx.strokeStyle = chokeColor;
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startA, endA, false);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  
+  // Center text
+  ctx.fillStyle = chokeColor;
+  ctx.font = 'bold 22px "Share Tech Mono"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(S.chokeOpen + '%', cx, cy);
+  ctx.fillStyle = '#4a6580';
+  ctx.font = '9px "Barlow Condensed"';
+  ctx.fillText('APERTURA', cx, cy + 18);
+  
+  // Ticks
+  for (let i = 0; i <= 10; i++) {
+    const a = startA + (i / 10) * Math.PI * 1.5;
+    const inner = i % 5 === 0 ? r - 14 : r - 10;
+    ctx.strokeStyle = i % 5 === 0 ? '#4a6580' : '#2a4060';
+    ctx.lineWidth = i % 5 === 0 ? 1.5 : 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+    ctx.moveTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2));
+    ctx.stroke();
+  }
+  
+  ctx.textBaseline = 'alphabetic';
+}
+
+// ─── BOP COMPONENT CATALOGUE ───
+const BOP_CATALOGUE = [
+  { id:'ann',    label:'Anular BOP',       short:'ANN', key:'annBOP',   desc:'Cierra anular alrededor de cualquier tubería', warn:false, default:true  },
+  { id:'pipe',   label:'Pipe RAM',          short:'PRM', key:'pipeBOP',  desc:'Cierra sobre sarta de perforación específica', warn:false, default:true  },
+  { id:'blind',  label:'Blind/Shear RAM',   short:'SHR', key:'blindBOP', desc:'Corta sarta — solo emergencia API 16A',        warn:true,  default:true  },
+  { id:'csr',    label:'Casing Shear RAM',  short:'CSR', key:'csrBOP',   desc:'Corta revestimiento de alta resistencia',     warn:true,  default:false },
+  { id:'vbr',    label:'Variable Bore RAM', short:'VBR', key:'vbrBOP',   desc:'Sella múltiples tamaños de tubería',           warn:false, default:false },
+  { id:'dsr',    label:'Drill Pipe Safety', short:'DPS', key:'dpsBOP',   desc:'RAM de seguridad para sarta de perforación',   warn:false, default:false },
+];
+
+// Active BOP state: which components are installed
+S.bopInstalled = { ann:true, pipe:true, blind:true, csr:false, vbr:false, dsr:false };
+// Per-component open/closed state
+BOP_CATALOGUE.forEach(c => { S[c.key] = false; }); // false = OPEN
+
+function buildBOPStack() {
+  const stack = document.getElementById('bopStack');
+  stack.innerHTML = '';
+  BOP_CATALOGUE.forEach(comp => {
+    if (!S.bopInstalled[comp.id]) return;
+    const isOpen = !S[comp.key];
+    const div = document.createElement('div');
+    div.className = 'bop-btn ' + (isOpen ? 'open' : 'closed');
+    div.id = 'bopBtn_' + comp.id;
+    div.onclick = () => toggleBOP(comp.id);
+    div.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:1px;">
+        <span style="font-size:12px;">${comp.label}</span>
+        <span style="font-size:9px;opacity:0.65;font-family:var(--mono);">${comp.desc.substring(0,28)}…</span>
+      </div>
+      <span class="bop-status" id="bopSt_${comp.id}">${isOpen ? 'ABIERTO' : 'CERRADO'}</span>
+    `;
+    stack.appendChild(div);
+  });
+
+  // Rebuild checkboxes in config panel
+  const boxes = document.getElementById('bopCheckboxes');
+  boxes.innerHTML = '';
+  BOP_CATALOGUE.forEach(comp => {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--cond);font-size:11px;color:var(--text);padding:2px 0;';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = S.bopInstalled[comp.id];
+    chk.style.cssText = 'accent-color:var(--accent);width:12px;height:12px;cursor:pointer;';
+    chk.onchange = () => {
+      // Enforce minimum: Anular + 1 RAM must stay
+      const willHave = BOP_CATALOGUE.filter(c => c.id === comp.id ? chk.checked : S.bopInstalled[c.id]);
+      const hasAnular = willHave.some(c => c.id === 'ann');
+      const hasRam    = willHave.some(c => ['pipe','blind','csr','vbr','dsr'].includes(c.id));
+      if (!hasAnular || !hasRam) {
+        chk.checked = !chk.checked;
+        addEvent('⚠ API 16A: Stack mínimo requiere Anular + 1 RAM', 'warn');
+        return;
+      }
+      S.bopInstalled[comp.id] = chk.checked;
+      if (!chk.checked) S[comp.key] = false; // reset to open if removed
+      buildBOPStack();
+      addEvent((chk.checked ? '+ ' : '− ') + comp.label + (chk.checked ? ' instalado' : ' removido'), chk.checked ? 'good' : 'warn');
+    };
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = comp.label;
+    const warnSpan = comp.warn ? Object.assign(document.createElement('span'), {
+      textContent:'EMERG',
+      style:'font-size:9px;color:var(--red);margin-left:auto;opacity:0.7;'
+    }) : null;
+    row.appendChild(chk);
+    row.appendChild(nameSpan);
+    if (warnSpan) row.appendChild(warnSpan);
+    boxes.appendChild(row);
+  });
+}
+
+function toggleBOPConfig() {
+  const panel = document.getElementById('bopConfigPanel');
+  const btn = document.getElementById('btnBOPConfig');
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '▲ Cerrar' : '+ Configurar';
+  document.getElementById('bopRatingDisplay').textContent = Number(S.bopRating).toLocaleString() + ' psi';
+}
+
+// ─── CONTROLES BOP ───
+function toggleBOP(id) {
+  const comp = BOP_CATALOGUE.find(c => c.id === id);
+  if (!comp || !S.bopInstalled[id]) return;
+  S[comp.key] = !S[comp.key];
+  const isOpen = !S[comp.key];
+  const btn = document.getElementById('bopBtn_' + id);
+  const st  = document.getElementById('bopSt_' + id);
+  if (btn) btn.className = 'bop-btn ' + (isOpen ? 'open' : 'closed');
+  if (st)  st.textContent = isOpen ? 'ABIERTO' : 'CERRADO';
+  addEvent((isOpen ? '🔓 ' : '🔒 ') + comp.label + (isOpen ? ' ABIERTO' : ' CERRADO'), isOpen ? 'good' : 'warn');
+  if (comp.warn && !isOpen) addEvent('⚠ ' + comp.label + ' activo — Solo emergencia (API 16A)', 'danger');
+}
+
+// Helper: is ANY BOP closed?
+function anyBOPClosed() {
+  return BOP_CATALOGUE.some(c => S.bopInstalled[c.id] && S[c.key]);
+}
+function isAnnOrPipeClosed() {
+  return (S.bopInstalled.ann && S.annBOP) || (S.bopInstalled.pipe && S.pipeBOP) ||
+         (S.bopInstalled.vbr && S.vbrBOP) || (S.bopInstalled.dsr && S.dpsBOP);
+}
+
+// ─── CHOKE ───
+function adjustChoke(delta) {
+  S.chokeOpen = Math.max(0, Math.min(100, S.chokeOpen + delta));
+  document.getElementById('chokeDisplay').textContent = S.chokeOpen + '%';
+  drawChoke();
+}
+
+// ─── SPM ───
+function setSPM(val) {
+  S.spm = parseInt(val);
+  document.getElementById('spmSlider').value = val;
+  document.getElementById('spmVal').textContent = val;
+  if (S.spm > 0) addEvent('Bomba: ' + val + ' SPM', 'good');
+}
+
+// ─── STROKES ───
+function resetStrokes() { S.strokeCount = 0; strokeAcc = 0; }
+
+// ─── KILL METHOD ───
+function setKillMethod(m) {
+  S.killMethod = m;
+  S.killStep = 0;
+  const steps = {
+    driller: ['Paso 1: Cerrar BOP. Leer SIDPP y SICP', 'Paso 2: Circular kick con lodo original a presión constante', 'Paso 3: Segunda circulación con lodo kill'],
+    wait_weight: ['Paso 1: Cerrar BOP. Calcular densidad kill', 'Paso 2: Preparar lodo kill (' + S.killMudDens.toFixed(2) + ' ppg)', 'Paso 3: Circular lodo kill manteniendo BHP constante'],
+    bullhead: ['Paso 1: Cerrar BOP completamente', 'Paso 2: Bombear lodo pesado hacia formación', 'Paso 3: Verificar presiones y reopened choke']
+  };
+  const el = document.getElementById('killStepDisplay');
+  if (m !== 'none' && steps[m]) {
+    el.textContent = steps[m][0];
+    document.getElementById('sbKillMode').textContent = {driller:'Driller\'s',wait_weight:'W&W',bullhead:'Bullhead'}[m];
+  } else {
+    el.textContent = '';
+    document.getElementById('sbKillMode').textContent = 'Ninguno';
+  }
+}
+
+// ─── EVENTOS ───
+function addEvent(msg, type = '') {
+  const log = document.getElementById('eventLog');
+  const d = document.createElement('div');
+  d.className = 'ev' + (type ? ' ' + type : '');
+  const hh = Math.floor(S.time / 3600).toString().padStart(2,'0');
+  const mm = Math.floor((S.time % 3600) / 60).toString().padStart(2,'0');
+  const ss = Math.floor(S.time % 60).toString().padStart(2,'0');
+  d.textContent = `[${hh}:${mm}:${ss}] ${msg}`;
+  log.insertBefore(d, log.firstChild);
+  while (log.children.length > 40) log.removeChild(log.lastChild);
+}
+
+// ─── TABLAS ───
+function buildFormationTable() {
+  const tbody = document.getElementById('formationTable');
+  tbody.innerHTML = '';
+  const activeFm = getActiveFormation(S.bitDepth);
+  S.formations.forEach(f => {
+    const tr = document.createElement('tr');
+    if (f === activeFm) tr.className = 'active';
+    tr.innerHTML = `<td>${f.top}</td><td>${f.name.split(' ')[0]}</td><td>${f.grad.toFixed(1)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildCasingTable() {
+  const tbody = document.getElementById('casingTable');
+  tbody.innerHTML = '';
+  S.casings.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.type}</td><td>${c.od}"</td><td>${c.depth} m</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── SETUP MODAL ───
+function openSetup() { document.getElementById('setupModal').classList.add('open'); }
+function closeSetup() { document.getElementById('setupModal').classList.remove('open'); }
+function applySetup() {
+  S.TD = parseFloat(document.getElementById('cfTD').value) || 3500;
+  S.mudDens = parseFloat(document.getElementById('cfMudDens').value) || 10.5;
+  S.formGrad = parseFloat(document.getElementById('cfFormGrad').value) || 11.2;
+  S.fracGrad = parseFloat(document.getElementById('cfFracGrad').value) || 14.0;
+  S.bitSize = parseFloat(document.getElementById('cfBitSize').value) || 12.25;
+  S.bopRating = parseFloat(document.getElementById('cfBOPRating').value) || 10000;
+  S.pumpVol = parseFloat(document.getElementById('cfPumpVol').value) || 0.1;
+  S.maxROP = parseFloat(document.getElementById('cfROP').value) || 15;
+  
+  // Casings from modal
+  const rows = document.querySelectorAll('#casingSetup tr');
+  const casingDefs = [{type:'Superficial', od:13.375}, {type:'Intermedio', od:9.625}, {type:'Producción', od:7.0}];
+  S.casings = [];
+  rows.forEach((row, i) => {
+    const inp = row.querySelector('input');
+    if (inp && casingDefs[i]) {
+      S.casings.push({...casingDefs[i], depth: parseFloat(inp.value) || 0});
+    }
+  });
+  
+  // Rebuild formations based on TD
+  S.formations = [
+    {name:'Arenas Cuaternarias', top:0, grad:S.mudDens - 0.5, frac:S.fracGrad - 2.0},
+    {name:'Lutitas Terciarias', top:Math.round(S.TD*0.2), grad:S.mudDens - 0.2, frac:S.fracGrad - 1.5},
+    {name:'Calizas Cretácicas', top:Math.round(S.TD*0.4), grad:S.mudDens + 0.2, frac:S.fracGrad - 1.0},
+    {name:'Arenas Jurásicas', top:Math.round(S.TD*0.65), grad:S.formGrad - 0.3, frac:S.fracGrad - 0.5},
+    {name:'Zona Objetivo (Pay)', top:Math.round(S.TD*0.85), grad:S.formGrad, frac:S.fracGrad},
+  ];
+  
+  closeSetup();
+  buildFormationTable();
+  buildCasingTable();
+  document.getElementById('bopRatingDisplay').textContent = Number(S.bopRating).toLocaleString() + ' psi';
+  document.getElementById('volPerStroke').textContent = S.pumpVol.toFixed(3) + ' bbl';
+  addEvent('Configuración aplicada: TD=' + S.TD + 'm, ρ=' + S.mudDens + ' ppg', 'good');
+  drawWell();
+}
+
+// ─── CONTROL SIMULACIÓN ───
+function startDrilling() {
+  if (S.running) {
+    S.running = false;
+    clearInterval(simInterval);
+    document.getElementById('btnDrill').textContent = '▶ Iniciar';
+    document.getElementById('btnDrill').className = 'btn btn-green';
+    document.getElementById('simStatus').textContent = 'PAUSADO';
+    addEvent('Simulación pausada', '');
+  } else {
+    S.running = true;
+    simInterval = setInterval(simStep, 500);
+    if (!startTime) startTime = Date.now();
+    document.getElementById('btnDrill').textContent = '⏸ Pausar';
+    document.getElementById('btnDrill').className = 'btn btn-amber';
+    document.getElementById('simStatus').textContent = 'EN CURSO';
+    document.getElementById('simDot').className = 'status-dot';
+    addEvent('Simulación iniciada', 'good');
+  }
+}
+
+function resetSim() {
+  S.running = false;
+  clearInterval(simInterval);
+  S.time = 0; S.bitDepth = 0; S.spm = 0;
+  S.gasInWell = 0; S.gasRate = 0;
+  S.kickDetected = false; S.fracDetected = false;
+  S.bhp = 0; S.sidpp = 0; S.sicp = 0; S.chokePsi = 0;
+  S.strokeCount = 0; strokeAcc = 0;
+  S.annBOP = false; S.pipeBOP = false; S.blindBOP = false;
+  S.pressHistory = [];
+  startTime = null;
+  
+  BOP_CATALOGUE.forEach(c => { S[c.key] = false; });
+  buildBOPStack();
+  document.getElementById('spmSlider').value = 0;
+  document.getElementById('spmVal').textContent = '0';
+  document.getElementById('btnDrill').textContent = '▶ Iniciar';
+  document.getElementById('btnDrill').className = 'btn btn-green';
+  document.getElementById('simStatus').textContent = 'DETENIDO';
+  document.getElementById('simDot').className = 'status-dot';
+  document.getElementById('kickAlert').className = 'kick-alert';
+  document.getElementById('gasAlert').textContent = '';
+  document.getElementById('eventLog').innerHTML = '<div class="ev good">↺ Simulador reiniciado</div>';
+  
+  updateUI();
+  addEvent('Reset completo', 'good');
+}
+
+// ─── RELOJ ───
+clockInterval = setInterval(() => {
+  const el = document.getElementById('simClock');
+  if (S.running && startTime) {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(elapsed/3600).toString().padStart(2,'0');
+    const m = Math.floor((elapsed%3600)/60).toString().padStart(2,'0');
+    const s = (elapsed%60).toString().padStart(2,'0');
+    el.textContent = h + ':' + m + ':' + s;
+  }
+}, 1000);
+
+// ─── RESIZE ───
+window.addEventListener('resize', () => { drawWell(); });
+
+// ─── RENDER LOOP (animaciones) ───
+function renderLoop() {
+  if (S.running || S.gasInWell > 0) drawWell();
+  drawChoke();
+  requestAnimationFrame(renderLoop);
+}
+
+// ─── INIT ───
+buildFormationTable();
+buildCasingTable();
+buildBOPStack();
+drawChoke();
+drawWell();
+renderLoop();
+</script>
+</body>
+</html>
